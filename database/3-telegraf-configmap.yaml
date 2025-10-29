@@ -1,0 +1,50 @@
+# 3-telegraf-config.yaml (Corrected)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telegraf-config
+  namespace: connected-kiln
+data:
+  telegraf.conf: |
+    [global_tags]
+    environment = "production"
+
+    [agent]
+      interval = "10s"
+      hostname = "telegraf-mqtt-collector"
+    # -----------------------------------------------
+      # DEBUGGING OPTIONS:
+      # -----------------------------------------------
+      debug = true   # Set to 'true' for verbose output
+      quiet = false  # Ensures all log levels are shown
+      # -----------------------------------------------
+    # --------------------------------------------------------------------------
+    # INPUT: MQTT Consumer
+    # --------------------------------------------------------------------------
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://mosquitto-service:1883"] 
+      topics = [
+        "kiln/#" 
+      ]
+      qos = 0
+      connection_timeout = "30s"
+    
+      # FIX: Use the standard 'json' data format for wider compatibility.
+      data_format = "json" 
+    
+      # FIX: Define the keys from the JSON payload to treat as tags and fields.
+      tag_keys = ["device_id"]
+      
+      # Need to force a name overrider:
+      name_override = "kiln_data" 
+    
+      # The remaining keys in the JSON payload (temp, pressure) will be treated as fields by default.
+    
+    # --------------------------------------------------------------------------
+    # OUTPUT: InfluxDB v2
+    # --------------------------------------------------------------------------
+    [[outputs.influxdb_v2]]
+      urls = ["http://influxdb-service:8086"] 
+      token = "pk-8RKW5_9DHvT9KnM-dnfzkzXl4NEI7G5HG2yEBTp2hTfMoRp2qZKWOHGgix_z1fzhHlq3tar0DJYyXkYSLiw==" # <<-- MUST MATCH THE TOKEN IN THE DEPLOYMENT
+      organization = "connected-kiln-org"
+      bucket = "kiln_metrics"
