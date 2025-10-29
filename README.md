@@ -27,48 +27,105 @@ Key microservices in place (in addition to default k3s features:
 
 - Grafana-Loki-Alloy: Log Analytics
 - Cert Manager: Certificate management and automation
-- Istio (Kubernetes Gateway) : Ingress controls
+- Kubernetes Gateway API / Istiod: Ingress to the cluster
 - Longhorn: Distributed Block Storage Platform
 - Sealed Secrets: Encryption of kubernetes secrets
 - Schooner: Kubernetes Dashboard
 - Velero: Backup / Recovery (Backblaze off site storage)
+
+It is assumed that these components are installed, tested and ready for usage. The cluster must be stable and any open issues resolved. 
+As an alternate, you could standup a default k3s single node environment and do most of the work as below. BUT, this guide leverages the latest 
+Kubernetes Gatway API and not Traefik.
 
 ## Detailed Kubernetes Components
 
 ![img_1.png](images/img_1.png)
 ## Initialization
 
+Create a working directory on your local client and make sure the following CLI tools are available:
+- kubectl (also, you are connected to your local/remote kubernetes cluster)
+- velero (if you have implemented velero as your cluster backup tooling)
+- mosquitto_pub (Available for mac/linux thru brew install mosquitto)
+
+Test your connection to your kubernetes system:
+````
+kubectl get nodes
+NAME        STATUS   ROLES                       AGE    VERSION
+vm10-lab1   Ready    control-plane,etcd,master   146d   v1.31.9+k3s1
+vm11-lab1   Ready    control-plane,etcd,master   145d   v1.31.9+k3s1
+vm12-lab1   Ready    control-plane,etcd,master   145d   v1.31.9+k3s1
+````
+Clone the repo:
+````
+git clone git@github.com:majones-services/connected-kiln.git
+
+cd connected-kiln
+````
 Using kubectl, implement the new namespace to organize the needed microservices
 ````
 kubectl apply -f connected-kiln-ns.yaml
 ````
-This command will create the connected-kiln namespace that is used throughout the configuration. Additionally, connecting
-to the schooner dashboard is helpful:
-````
-kubectl port-forward service/skooner 8000:80 -n kube-system
-````
-Always good to create a full backup of the kubernetes system to be able to UNDO all that we're going to do. Here are some helful Velero commands:
-````
-velero backup get
-NAME                        STATUS      ERRORS   WARNINGS   CREATED                         EXPIRES   STORAGE LOCATION   SELECTOR
-full-daily-20251029080048   Completed   0        0          2025-10-29 04:00:48 -0400 EDT   6d        default            <none>
-full-daily-20251028080047   Completed   0        2          2025-10-28 04:00:47 -0400 EDT   5d        default            <none>
-special-full-10-27          Completed   0        2          2025-10-27 11:30:43 -0400 EDT   28d       default            <none>
-````
-The special back up was created using the following command:
-````
-velero backup create special-full-10-27
-````
-Create a working directory on your local client and make sure the following CLI tools are avaliable:
-- kubectl (also, you are connected to your local/remote kubernetes cluster)
-- velero (if you have implemented velero as your cluster backup tooling)
+This command will create the connected-kiln namespace that is used throughout the configuration. 
 
-git clone git@github.com
 ## Eclipse Mosquitto Broker
 
 Installation steps:
 
 Step 1: Run the following kubectl commands:
 ````
-cd /connected
+cd mosquitto
 kubectl apply -f mosquitto-pvc.yaml
+kubectl apply -f mosquitto-configmap.yaml
+kubectl apply -f mosquitto-deployment.yaml
+kubectl apply -f mosquitto-service.yaml
+````
+These commands will:
+- create a persistent volume claim (1Gi)
+- create the mosquitto configmap
+- Deploy mosquitto as a ReplicaSet, running on port 1883 with a ClusterIP
+- Mosquitto 2.02.22 will be deployed
+
+Test connections:
+To test the broker, a simple method would be as follows:
+````
+kubectl port-forward service/mosquitto-service 1883:1883 -n connected-kiln
+mosquitto_pub -h localhost -p 1883 -t "kiln/furnace/01"  -m "{\"temp\": 1250, \"pressure\": 1.15, \"device_id\": \"kiln-01\"}"
+````
+You can review the logs of the mosquitto pod with the following:
+````
+kubectl get pods -n connected-kiln
+NAME                         READY   STATUS    RESTARTS   AGE
+mosquitto-587458f655-4845k   1/1     Running   0          45h
+kubectl logs pod/mosquitto-587458f655-4845k -n connected-kiln
+1761752127: New connection from 127.0.0.1:38958 on port 1883.
+1761752127: New client connected from 127.0.0.1:38958 as auto-328FAE4A-93D6-DE44-0FD6-8596B33DC32C (p2, c1, k60).
+1761752127: Client auto-328FAE4A-93D6-DE44-0FD6-8596B33DC32C disconnected.
+````
+Connection is confirmed
+## Data Store installation (InfuxDB / Telegraf)
+The YAML files needed to configure the influxDB and it's connector to MQTT: Telegraf are localed in the "database" dir.
+````
+cd connected-kiln 
+kubectl apply -f ./database/ 
+````
+This installation will result in InfluxDB and Telegraf plus related services being installed. Notes about the configmap for telegraf:
+- The telegraf configmap defines a couple of key values (update as you see fit):
+  - Bucket: kiln_metrics
+  - Organization: connected-kiln-org
+  - Default topic that Telegraf listens for: kiln/#
+  - DeviceID is the Tag and then all the other values are fields
+- InfluxDB deployment yaml contains the db passwords you'd like to be used. Set them to what every you want. If, after you install you'd like to update them:
+````
+kubectl get pods -n connected-kiln
+
+NAME                         READY   STATUS    RESTARTS   AGE
+influxdb-98f864db7-d59d9     1/1     Running   0          44h
+mosquitto-587458f655-4845k   1/1     Running   0          45h
+mosquitto-test-client        1/1     Running   0          45h
+telegraf-6c5fc6fdb8-vq8gn    1/1     Running   0          18h
+
+kubectl exec -it influxdb-98f864db7-d59d9 -n connected-kiln -- sh
+
+$ influx auth create --org connected-kiln-org --write-bucket kiln_metrics -d "Telegraf Collector Token"
+````
+The output of the influx command will be 
