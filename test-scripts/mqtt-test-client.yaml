@@ -1,0 +1,35 @@
+# mqtt-test-client.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mosquitto-test-client
+  namespace: connected-kiln
+spec:
+  # 1. Pod-level Security Context
+  securityContext:
+    runAsNonRoot: true
+    # Use a non-root user ID, common for images like mosquitto
+    runAsUser: 1000
+    runAsGroup: 1000
+    # Required by restricted profile
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Ensure the pod cleans up after itself
+  restartPolicy: Never
+
+  containers:
+    - name: monitor-client
+      image: eclipse-mosquitto:latest
+      # Override the default command to start a shell
+      command: ["/bin/sh"]
+      args: ["-c", "sleep infinity"] # Keep the container running for manual use
+
+      # 2. Container-level Security Context
+      securityContext:
+        # Required by restricted profile
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"] # Required by restricted profile
+        # The mosquitto image usually runs as UID 1000 (non-root)
+        readOnlyRootFilesystem: false

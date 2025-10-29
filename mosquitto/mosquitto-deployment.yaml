@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: connected-kiln
+  labels:
+    app: mosquitto
+spec:
+  replicas: 1 # Start with a single replica
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      securityContext:
+        # This is the pod-level securityContext
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+        - name: mosquitto
+          image: eclipse-mosquitto:2.0.22 # Use a stable image tag
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            capabilities:
+              drop: [ "ALL" ]
+            readOnlyRootFilesystem: false
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - containerPort: 1883
+              name: mqtt
+          # - containerPort: 9001 # Uncomment if you enable WebSockets
+          volumeMounts:
+            - name: mosquitto-config-volume
+              mountPath: /mosquitto/config/mosquitto.conf
+              subPath: mosquitto.conf # Mounts only the file, not the whole directory
+            - name: mosquitto-data-volume
+              mountPath: /mosquitto/data
+      volumes:
+        - name: mosquitto-config-volume
+          configMap:
+            name: mosquitto-config
+        - name: mosquitto-data-volume # Uses the PVC created in Step 2
+          persistentVolumeClaim:
+            claimName: mosquitto-data-pvc

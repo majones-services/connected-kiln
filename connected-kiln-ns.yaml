@@ -1,0 +1,6 @@
+# mosquitto-namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: connected-kiln
+  # Use a descriptive name

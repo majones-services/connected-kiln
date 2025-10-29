@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: connected-kiln
+data:
+  mosquitto.conf: |
+    # Listener for standard MQTT port (unsecured)
+    listener 1883
+    protocol mqtt
+    allow_anonymous true
+
+    # Optional: Listener for WebSockets (for browser-based clients)
+    # listener 9001
+    # protocol websockets
+    
+    # Optional: Persistence configuration (requires a PersistentVolumeClaim)
+    persistence true
+    persistence_location /mosquitto/data/
+    log_dest stdout

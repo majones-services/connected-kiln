@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto-service
+  namespace: connected-kiln
+spec:
+  selector:
+    app: mosquitto
+  ports:
+    - protocol: TCP
+      port: 1883
+      targetPort: 1883
+      name: mqtt-tcp
+    # - protocol: TCP
+    #   port: 9001
+    #   targetPort: 9001
+    #   name: mqtt-ws # Uncomment if you enable WebSockets
+  type: ClusterIP # Internal to the cluster
+  # To expose outside the cluster, change type to NodePort or LoadBalancer
