@@ -15,8 +15,8 @@ data:
     # -----------------------------------------------
       # DEBUGGING OPTIONS:
       # -----------------------------------------------
-      debug = true   # Set to 'true' for verbose output
-      quiet = false  # Ensures all log levels are shown
+      #debug = true   # Set to 'true' for verbose output
+      #quiet = false  # Ensures all log levels are shown
       # -----------------------------------------------
     # --------------------------------------------------------------------------
     # INPUT: MQTT Consumer

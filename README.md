@@ -128,4 +128,13 @@ kubectl exec -it influxdb-98f864db7-d59d9 -n connected-kiln -- sh
 
 $ influx auth create --org connected-kiln-org --write-bucket kiln_metrics -d "Telegraf Collector Token"
 ````
-The output of the influx command will be 
+The output of the influx command will be the following data:
+````
+ID: 0fb5ce466ab71000
+Description: New Admin Token for Telegraf/Grafana
+Token: <yours will be a unique token>
+User Name: influxadmin
+User ID: 0fb5c4125f8fb000
+Permissions: <LONG STRING of everything the admin has access to>
+````
+- Telegraf log does not show a connection by default: you can add debug log level, its commented out in the configmap
